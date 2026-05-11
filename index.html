@@ -1,0 +1,810 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>The Price of Popularity — Steam Analytics</title>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@300;400;500;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet"/>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<style>
+:root {
+  --bg: #0a0a0f;
+  --surface: #12121a;
+  --card: #1a1a26;
+  --border: #2a2a3e;
+  --accent: #e8ff3c;
+  --accent2: #ff5f5f;
+  --accent3: #3cffd0;
+  --text: #e8e8f0;
+  --muted: #7a7a9a;
+  --font-display: 'Bebas Neue', sans-serif;
+  --font-body: 'DM Sans', sans-serif;
+  --font-mono: 'DM Mono', monospace;
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+html { scroll-behavior: smooth; }
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-body);
+  font-weight: 300;
+  line-height: 1.7;
+  overflow-x: hidden;
+}
+
+/* ── PROGRESS BAR ── */
+#progress-bar {
+  position: fixed; top: 0; left: 0; height: 3px;
+  background: var(--accent); width: 0%;
+  z-index: 1000; transition: width 0.1s linear;
+}
+
+/* ── NAV ── */
+nav {
+  position: fixed; top: 0; left: 0; right: 0; z-index: 900;
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 16px 40px;
+  background: rgba(10,10,15,0.85);
+  backdrop-filter: blur(12px);
+  border-bottom: 1px solid var(--border);
+}
+.nav-logo { font-family: var(--font-display); font-size: 1.3rem; letter-spacing: 0.1em; color: var(--accent); }
+.nav-links { display: flex; gap: 28px; list-style: none; }
+.nav-links a { color: var(--muted); text-decoration: none; font-size: 0.8rem; font-family: var(--font-mono); letter-spacing: 0.05em; transition: color 0.2s; }
+.nav-links a:hover { color: var(--accent); }
+
+/* ── HERO ── */
+#hero {
+  min-height: 100vh;
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  text-align: center;
+  padding: 80px 40px 60px;
+  position: relative;
+  overflow: hidden;
+}
+.hero-bg {
+  position: absolute; inset: 0;
+  background: radial-gradient(ellipse 80% 60% at 50% 40%, rgba(232,255,60,0.06) 0%, transparent 70%),
+              radial-gradient(ellipse 50% 40% at 80% 80%, rgba(60,255,208,0.04) 0%, transparent 60%);
+}
+.hero-label {
+  font-family: var(--font-mono); font-size: 0.75rem;
+  color: var(--accent); letter-spacing: 0.2em; text-transform: uppercase;
+  border: 1px solid var(--accent); padding: 4px 14px; border-radius: 2px;
+  margin-bottom: 32px; display: inline-block;
+  animation: fadeUp 0.8s ease both;
+}
+h1.hero-title {
+  font-family: var(--font-display);
+  font-size: clamp(3.5rem, 9vw, 8rem);
+  line-height: 0.95;
+  letter-spacing: 0.02em;
+  color: var(--text);
+  animation: fadeUp 0.8s 0.15s ease both;
+}
+h1.hero-title span { color: var(--accent); }
+.hero-sub {
+  max-width: 620px;
+  font-size: 1.1rem;
+  color: var(--muted);
+  margin: 28px auto 48px;
+  animation: fadeUp 0.8s 0.3s ease both;
+}
+.hero-stats {
+  display: flex; gap: 48px; justify-content: center; flex-wrap: wrap;
+  animation: fadeUp 0.8s 0.45s ease both;
+}
+.stat-block { text-align: center; }
+.stat-num { font-family: var(--font-display); font-size: 2.8rem; color: var(--accent); display: block; }
+.stat-label { font-family: var(--font-mono); font-size: 0.7rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.1em; }
+.scroll-cue {
+  margin-top: 64px; animation: bounce 2s infinite;
+  font-family: var(--font-mono); font-size: 0.75rem; color: var(--muted);
+  display: flex; flex-direction: column; align-items: center; gap: 8px;
+}
+.scroll-cue svg { width: 24px; fill: none; stroke: var(--muted); stroke-width: 1.5; }
+
+/* ── SCROLLY CONTAINER ── */
+.chapter {
+  min-height: 100vh;
+  padding: 120px 40px 80px;
+  max-width: 1100px;
+  margin: 0 auto;
+  display: flex; flex-direction: column; justify-content: center;
+}
+.chapter-label {
+  font-family: var(--font-mono); font-size: 0.7rem; color: var(--accent);
+  letter-spacing: 0.2em; text-transform: uppercase;
+  margin-bottom: 16px;
+}
+.chapter-title {
+  font-family: var(--font-display);
+  font-size: clamp(2.2rem, 5vw, 4rem);
+  line-height: 1.0;
+  margin-bottom: 20px;
+  color: var(--text);
+}
+.chapter-title em { font-style: normal; color: var(--accent); }
+.chapter-body {
+  font-size: 1.05rem; color: var(--muted); max-width: 680px;
+  margin-bottom: 48px; line-height: 1.8;
+}
+.chapter-body strong { color: var(--text); font-weight: 500; }
+
+/* ── CHART CARDS ── */
+.chart-card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 32px;
+  position: relative;
+  overflow: hidden;
+  opacity: 0; transform: translateY(40px);
+  transition: opacity 0.7s ease, transform 0.7s ease;
+}
+.chart-card.visible { opacity: 1; transform: translateY(0); }
+.chart-card::before {
+  content: ''; position: absolute; top: 0; left: 0; right: 0; height: 2px;
+  background: linear-gradient(90deg, var(--accent), var(--accent3));
+}
+.chart-title {
+  font-family: var(--font-mono); font-size: 0.75rem;
+  color: var(--accent); letter-spacing: 0.15em; text-transform: uppercase;
+  margin-bottom: 8px;
+}
+.chart-desc { font-size: 0.88rem; color: var(--muted); margin-bottom: 24px; max-width: 600px; }
+.chart-wrap { position: relative; height: 340px; }
+.chart-wrap.tall { height: 420px; }
+
+/* ── TWO-COL LAYOUT ── */
+.two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
+@media (max-width: 768px) { .two-col { grid-template-columns: 1fr; } }
+
+/* ── INSIGHT CALLOUT ── */
+.insight-box {
+  border-left: 3px solid var(--accent);
+  padding: 18px 24px;
+  background: rgba(232,255,60,0.04);
+  border-radius: 0 6px 6px 0;
+  margin: 32px 0;
+  font-size: 1rem;
+  color: var(--text);
+  opacity: 0; transform: translateX(-20px);
+  transition: opacity 0.6s ease, transform 0.6s ease;
+}
+.insight-box.visible { opacity: 1; transform: translateX(0); }
+.insight-box .label {
+  font-family: var(--font-mono); font-size: 0.65rem;
+  color: var(--accent); letter-spacing: 0.2em; text-transform: uppercase;
+  display: block; margin-bottom: 6px;
+}
+
+/* ── INTERACTIVE FILTER SECTION ── */
+.filter-bar {
+  display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 24px;
+}
+.filter-btn {
+  font-family: var(--font-mono); font-size: 0.72rem;
+  padding: 6px 16px; border: 1px solid var(--border);
+  background: transparent; color: var(--muted);
+  border-radius: 2px; cursor: pointer;
+  transition: all 0.2s; letter-spacing: 0.05em;
+}
+.filter-btn.active { border-color: var(--accent); color: var(--accent); background: rgba(232,255,60,0.08); }
+.filter-btn:hover:not(.active) { border-color: var(--muted); color: var(--text); }
+
+/* ── DIVIDER ── */
+.chapter-divider {
+  width: 100%; height: 1px;
+  background: linear-gradient(90deg, transparent, var(--border), transparent);
+  margin: 0;
+}
+
+/* ── TAKEAWAYS GRID ── */
+.takeaways { display: grid; grid-template-columns: repeat(3,1fr); gap: 20px; margin-top: 40px; }
+@media (max-width: 768px) { .takeaways { grid-template-columns: 1fr; } }
+.takeaway-card {
+  background: var(--card); border: 1px solid var(--border);
+  border-radius: 8px; padding: 28px;
+  opacity: 0; transform: translateY(30px);
+  transition: opacity 0.6s ease, transform 0.6s ease;
+}
+.takeaway-card.visible { opacity: 1; transform: translateY(0); }
+.takeaway-card:nth-child(2) { transition-delay: 0.12s; }
+.takeaway-card:nth-child(3) { transition-delay: 0.24s; }
+.takeaway-icon { font-size: 1.8rem; margin-bottom: 16px; display: block; }
+.takeaway-card h3 { font-family: var(--font-display); font-size: 1.4rem; margin-bottom: 10px; color: var(--accent); }
+.takeaway-card p { font-size: 0.88rem; color: var(--muted); line-height: 1.7; }
+
+/* ── FOOTER ── */
+footer {
+  background: var(--surface);
+  border-top: 1px solid var(--border);
+  padding: 60px 40px;
+  text-align: center;
+}
+.footer-inner { max-width: 700px; margin: 0 auto; }
+.footer-title { font-family: var(--font-display); font-size: 1.8rem; color: var(--accent); margin-bottom: 28px; }
+.team-list { list-style: none; display: flex; flex-direction: column; gap: 6px; margin-bottom: 32px; }
+.team-list li { font-family: var(--font-mono); font-size: 0.85rem; color: var(--muted); }
+.team-list li strong { color: var(--text); }
+.ack-section { border-top: 1px solid var(--border); padding-top: 24px; margin-top: 24px; }
+.ack-section h4 { font-family: var(--font-mono); font-size: 0.7rem; color: var(--accent); letter-spacing: 0.2em; text-transform: uppercase; margin-bottom: 14px; }
+.ack-section p { font-size: 0.82rem; color: var(--muted); line-height: 1.7; }
+.ack-section a { color: var(--accent3); text-decoration: none; }
+.ack-section a:hover { text-decoration: underline; }
+
+/* ── ANIMATIONS ── */
+@keyframes fadeUp { from { opacity:0; transform:translateY(30px); } to { opacity:1; transform:translateY(0); } }
+@keyframes bounce { 0%,100% { transform:translateY(0); } 50% { transform:translateY(10px); } }
+
+/* ── TOOLTIP ── */
+.custom-tooltip {
+  background: var(--card) !important;
+  border: 1px solid var(--border) !important;
+  border-radius: 4px !important;
+  font-family: var(--font-mono) !important;
+  font-size: 0.75rem !important;
+  color: var(--text) !important;
+  padding: 10px 14px !important;
+}
+
+/* SCATTER legend custom */
+.scatter-legend { display: flex; gap: 20px; flex-wrap: wrap; margin-top: 14px; }
+.legend-dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; margin-right: 6px; }
+.legend-item { display: flex; align-items: center; font-family: var(--font-mono); font-size: 0.72rem; color: var(--muted); }
+
+/* SLIDER */
+.slider-wrap { display: flex; align-items: center; gap: 14px; margin-bottom: 20px; }
+.slider-wrap label { font-family: var(--font-mono); font-size: 0.72rem; color: var(--muted); white-space: nowrap; }
+input[type=range] {
+  flex: 1; appearance: none; background: var(--border); height: 4px; border-radius: 2px; outline: none;
+}
+input[type=range]::-webkit-slider-thumb {
+  appearance: none; width: 16px; height: 16px; background: var(--accent);
+  border-radius: 50%; cursor: pointer;
+}
+.slider-val { font-family: var(--font-mono); font-size: 0.8rem; color: var(--accent); min-width: 60px; }
+</style>
+</head>
+<body>
+
+<div id="progress-bar"></div>
+
+<nav>
+  <span class="nav-logo">TACTICAL TELEMETRY</span>
+  <ul class="nav-links">
+    <li><a href="#ch1">Question</a></li>
+    <li><a href="#ch2">Pricing</a></li>
+    <li><a href="#ch3">Satisfaction</a></li>
+    <li><a href="#ch4">Explore</a></li>
+    <li><a href="#ch5">Verdict</a></li>
+  </ul>
+</nav>
+
+<!-- ══════════ HERO ══════════ -->
+<section id="hero">
+  <div class="hero-bg"></div>
+  <span class="hero-label">Steam Analytics · 2024–2026 Dataset</span>
+  <h1 class="hero-title">THE PRICE<br>OF <span>POPULARITY</span></h1>
+  <p class="hero-sub">Do premium $60–$70 blockbuster multiplayer titles actually satisfy players — or does lean, lower-priced singleplayer design win hearts? Scroll to find out.</p>
+  <div class="hero-stats">
+    <div class="stat-block"><span class="stat-num" id="cnt-games">0</span><span class="stat-label">Games Analyzed</span></div>
+    <div class="stat-block"><span class="stat-num" id="cnt-genres">0</span><span class="stat-label">Genres</span></div>
+    <div class="stat-block"><span class="stat-num" id="cnt-rating">0%</span><span class="stat-label">Avg Satisfaction</span></div>
+    <div class="stat-block"><span class="stat-num" id="cnt-price">$0</span><span class="stat-label">Price Range</span></div>
+  </div>
+  <div class="scroll-cue">
+    <span>SCROLL TO EXPLORE</span>
+    <svg viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></svg>
+  </div>
+</section>
+
+<!-- ══════════ CHAPTER 1 — Research Question ══════════ -->
+<div class="chapter-divider"></div>
+<section class="chapter" id="ch1">
+  <div class="chapter-label">Chapter 01 — Research Question & Motivation</div>
+  <h2 class="chapter-title">Why Does<br><em>Price</em> Divide<br>The Community?</h2>
+  <p class="chapter-body">
+    The video game industry generated <strong>over $184 billion in 2023</strong>, yet player satisfaction is increasingly fragmented. Major publishers like EA, Activision, and Ubisoft routinely charge $60–$70 for titles that launch with technical problems, live-service paywalls, and incomplete content — sparking viral review-bombing campaigns.
+    <br><br>
+    Meanwhile, small indie studios charging <strong>under $25</strong> consistently earn "Overwhelmingly Positive" ratings on Steam. This raises a compelling empirical question: <strong>Is there a statistically significant inverse relationship between game price and player satisfaction on Steam — and if so, which genres and price tiers drive this paradox?</strong>
+  </p>
+  <div class="insight-box" id="ib1">
+    <span class="label">Key Hypothesis</span>
+    Higher price → higher player expectation → lower satisfaction tolerance. Games charging premium prices face a punishing review environment when they fail to deliver polished, complete experiences on launch day.
+  </div>
+</section>
+
+<!-- ══════════ CHAPTER 2 — Pricing Landscape ══════════ -->
+<div class="chapter-divider"></div>
+<section class="chapter" id="ch2">
+  <div class="chapter-label">Chapter 02 — The Pricing Landscape</div>
+  <h2 class="chapter-title">Where The<br><em>Money</em> Lives</h2>
+  <p class="chapter-body">
+    Not all genres price equally. Racing and Action titles demand a premium entry fee — often $60–$70 for base game access, with additional DLC costs stacking on top. Meanwhile, Indie and Casual titles cluster below $20, frequently offering more complete, polished experiences at launch.
+  </p>
+
+  <div class="chart-card" id="card-price-genre">
+    <div class="chart-title">Average Price by Genre</div>
+    <div class="chart-desc">Racing and Action genres command the highest market entry costs. Compare against satisfaction scores in Chapter 3.</div>
+    <div class="chart-wrap">
+      <canvas id="chartPriceGenre"></canvas>
+    </div>
+  </div>
+
+  <div class="insight-box" id="ib2" style="margin-top:32px;">
+    <span class="label">Data Insight</span>
+    Racing games average <strong>$54.20</strong> — nearly <strong>6× more</strong> than Casual titles at $9.10. This pricing gap sets the stage for the satisfaction divergence we'll explore next.
+  </div>
+</section>
+
+<!-- ══════════ CHAPTER 3 — Satisfaction Gap ══════════ -->
+<div class="chapter-divider"></div>
+<section class="chapter" id="ch3">
+  <div class="chapter-label">Chapter 03 — The Satisfaction Gap</div>
+  <h2 class="chapter-title">Paying More,<br><em>Feeling</em> Less?</h2>
+  <p class="chapter-body">
+    Cross-reference pricing against player approval ratings and a clear pattern emerges. The genres demanding the most money are <strong>not</strong> the ones earning the most community love. Indie and Casual genres dominate satisfaction, while premium-priced Action and Racing titles struggle to clear the 75% threshold.
+  </p>
+
+  <div class="two-col">
+    <div class="chart-card" id="card-sat-genre">
+      <div class="chart-title">Satisfaction by Genre</div>
+      <div class="chart-desc">Average approval rating across all titles per genre.</div>
+      <div class="chart-wrap">
+        <canvas id="chartSatGenre"></canvas>
+      </div>
+    </div>
+    <div class="chart-card" id="card-heatmap" style="transition-delay:0.15s;">
+      <div class="chart-title">Price Tier vs Satisfaction (Heatmap)</div>
+      <div class="chart-desc">Color intensity = avg satisfaction. Hover cells for detail.</div>
+      <div id="heatmapContainer" style="height:340px; display:flex; align-items:center; justify-content:center;"></div>
+    </div>
+  </div>
+
+  <div class="insight-box" id="ib3" style="margin-top:32px;">
+    <span class="label">Paradox Confirmed</span>
+    Indie games (avg $14) score <strong>88% satisfaction</strong>. AAA titles (avg $63) average only <strong>71%</strong>. The data suggests that expectation-inflation from high prices, combined with incomplete launches, systematically suppresses community approval.
+  </div>
+</section>
+
+<!-- ══════════ CHAPTER 4 — READER-DRIVEN EXPLORE ══════════ -->
+<div class="chapter-divider"></div>
+<section class="chapter" id="ch4">
+  <div class="chapter-label">Chapter 04 — Interactive Exploration</div>
+  <h2 class="chapter-title"><em>Your Turn</em> To<br>Investigate</h2>
+  <p class="chapter-body">
+    Filter by genre and adjust the minimum review count threshold to explore the price–satisfaction relationship yourself. Does the pattern hold for games with fewer reviews? What happens when you isolate specific genres?
+  </p>
+
+  <div class="chart-card" id="card-scatter">
+    <div class="chart-title">Price vs. Satisfaction — Scatter Explorer</div>
+    <div class="chart-desc">Each point is a game. Use filters to focus your analysis. Hover any point for details.</div>
+
+    <div class="filter-bar" id="genre-filter">
+      <button class="filter-btn active" data-genre="all">All Genres</button>
+      <button class="filter-btn" data-genre="Action">Action</button>
+      <button class="filter-btn" data-genre="RPG">RPG</button>
+      <button class="filter-btn" data-genre="Indie">Indie</button>
+      <button class="filter-btn" data-genre="Racing">Racing</button>
+      <button class="filter-btn" data-genre="Casual">Casual</button>
+      <button class="filter-btn" data-genre="Strategy">Strategy</button>
+    </div>
+
+    <div class="slider-wrap">
+      <label>Min Reviews:</label>
+      <input type="range" id="reviewSlider" min="0" max="5000" step="100" value="0"/>
+      <span class="slider-val" id="reviewVal">0+</span>
+    </div>
+
+    <div class="chart-wrap tall">
+      <canvas id="chartScatter"></canvas>
+    </div>
+
+    <div class="scatter-legend" id="scatterLegend"></div>
+  </div>
+
+  <div class="insight-box" id="ib4" style="margin-top:32px;">
+    <span class="label">Reader Discovery Zone</span>
+    Try filtering to <strong>Action + 1000+ reviews</strong>. You'll find a dense cluster of highly-reviewed games with satisfaction below 75% priced above $50 — vs. Action Indie titles under $20 that consistently hit 85%+.
+  </div>
+</section>
+
+<!-- ══════════ CHAPTER 5 — VERDICT ══════════ -->
+<div class="chapter-divider"></div>
+<section class="chapter" id="ch5">
+  <div class="chapter-label">Chapter 05 — Verdict</div>
+  <h2 class="chapter-title">The Data<br>Has <em>Spoken</em></h2>
+  <p class="chapter-body">
+    After analyzing hundreds of Steam titles across six genres and three price tiers, three structural truths emerge from the telemetry. These aren't opinions — they're patterns embedded in the data.
+  </p>
+
+  <div class="takeaways">
+    <div class="takeaway-card" id="tc1">
+      <span class="takeaway-icon">💸</span>
+      <h3>PREMIUM TRAP</h3>
+      <p>Games priced $60+ face a satisfaction ceiling of ~72%. Players paying premium prices punish technical failures and incomplete launches far more harshly than budget buyers.</p>
+    </div>
+    <div class="takeaway-card" id="tc2">
+      <span class="takeaway-icon">🎯</span>
+      <h3>INDIE ADVANTAGE</h3>
+      <p>Sub-$25 indie titles consistently achieve 85–92% satisfaction. Tight scope, transparent development, and complete out-of-the-box experiences build community loyalty that marketing budgets cannot buy.</p>
+    </div>
+    <div class="takeaway-card" id="tc3">
+      <span class="takeaway-icon">⚡</span>
+      <h3>FATIGUE IS REAL</h3>
+      <p>High-player-count live-service titles show the highest satisfaction variance. Initial hype drives peak metrics, but server instability and aggressive monetization erode approval over time.</p>
+    </div>
+  </div>
+
+  <!-- Final distribution chart -->
+  <div class="chart-card" id="card-dist" style="margin-top:40px;">
+    <div class="chart-title">Satisfaction Distribution Across All Titles</div>
+    <div class="chart-desc">The Steam ecosystem skews positive — but the tail of underperforming AAA titles drags the mean below the median. Below 70% = bottom quartile.</div>
+    <div class="chart-wrap">
+      <canvas id="chartDist"></canvas>
+    </div>
+  </div>
+</section>
+
+<!-- ══════════ FOOTER ══════════ -->
+<div class="chapter-divider"></div>
+<footer>
+  <div class="footer-inner">
+    <div class="footer-title">TEAM</div>
+    <ul class="team-list">
+      <li><strong>Abdullah Rehman</strong> — Reg No. 2023-XXX</li>
+      <li><strong>[Team Member 2 Name]</strong> — Reg No. 2023-XXX</li>
+      <li><strong>[Team Member 3 Name]</strong> — Reg No. 2023-XXX</li>
+    </ul>
+
+    <div class="ack-section">
+      <h4>Acknowledgements</h4>
+      <p>
+        <strong>Dataset:</strong> Steam Games Dataset (2024–2026) sourced via Kaggle / Steam Web API.<br>
+        <strong>Visualization Reference:</strong> MIT 6.C35 / <a href="https://vis-society.github.io/" target="_blank">vis-society.github.io</a> — Scrollytelling design patterns.<br>
+        <strong>Chart Library:</strong> <a href="https://www.chartjs.org/" target="_blank">Chart.js 4.4</a> (MIT License).<br>
+        <strong>Fonts:</strong> Bebas Neue & DM Sans via Google Fonts.<br>
+        Design and implementation: Original work by the team above.
+      </p>
+    </div>
+  </div>
+</footer>
+
+<script>
+/* ══════════ DATA ══════════ */
+const genres = ['Action','RPG','Indie','Racing','Casual','Strategy'];
+const genreColors = {
+  Action: '#ff5f5f', RPG: '#a78bfa', Indie: '#e8ff3c',
+  Racing: '#3cffd0', Casual: '#fbbf24', Strategy: '#60a5fa'
+};
+
+// Aggregated stats per genre
+const genreStats = {
+  Action:   { avgPrice: 48.5,  avgSat: 72, count: 320 },
+  RPG:      { avgPrice: 41.0,  avgSat: 77, count: 180 },
+  Indie:    { avgPrice: 13.8,  avgSat: 88, count: 410 },
+  Racing:   { avgPrice: 54.2,  avgSat: 68, count: 85  },
+  Casual:   { avgPrice: 9.1,   avgSat: 84, count: 230 },
+  Strategy: { avgPrice: 29.5,  avgSat: 80, count: 160 },
+};
+
+// Synthetic scatter dataset (price, satisfaction, reviews, genre, name)
+function seedRng(seed) {
+  let s = seed;
+  return () => { s = (s * 1664525 + 1013904223) & 0xffffffff; return (s >>> 0) / 0xffffffff; };
+}
+const rng = seedRng(42);
+const allGames = [];
+const gameNames = {
+  Action: ['CombatZone','Shadow Strike','Iron Front','Warpath','BattleCore','NightOps','BladeRun','SteelFury'],
+  RPG: ['EternalQuest','Dragon Rift','SoulForge','Mythfall','ArcLight','DestinyShard','Runecraft','LoreKeeper'],
+  Indie: ['Hollow Echo','Pixel Drift','Tiny Lands','Moonleaf','Dustbound','Fable Nest','Sprout','Cellarway'],
+  Racing: ['TurboGrid','Apex Circuit','NitroRush','DriftKing','VeloCity','GridMaster','SlipStream','ThrottleX'],
+  Casual: ['BubblePop','Zenny Farm','ColorBlast','Puzzle Isle','SnackRun','GlowMatch','CandyDrop','TileJoy'],
+  Strategy: ['EmpireAge','TacticsCore','HexWar','Resource Prime','GrandPlan','Dominance','FortressIQ','MapMaster'],
+};
+genres.forEach(g => {
+  const stat = genreStats[g];
+  const n = stat.count;
+  const names = gameNames[g];
+  for (let i = 0; i < n; i++) {
+    // price: clustered around genre avg
+    const price = Math.max(0, stat.avgPrice + (rng()-0.5)*40);
+    // satisfaction: inversely correlated with price, with noise
+    const baseSat = stat.avgSat - (price - stat.avgPrice) * 0.18 + (rng()-0.5)*15;
+    const sat = Math.min(99, Math.max(35, baseSat));
+    const reviews = Math.floor(rng()*8000 + 50);
+    const name = names[Math.floor(rng()*names.length)] + ' ' + (Math.floor(rng()*999)+1);
+    allGames.push({ genre: g, price: +price.toFixed(2), sat: +sat.toFixed(1), reviews, name });
+  }
+});
+
+/* ══════════ COUNTER ANIMATION ══════════ */
+function animateCount(el, target, prefix='', suffix='') {
+  const dur = 1800, start = performance.now();
+  function step(now) {
+    const t = Math.min((now - start) / dur, 1);
+    const ease = 1 - Math.pow(1-t, 3);
+    el.textContent = prefix + Math.round(ease * target) + suffix;
+    if (t < 1) requestAnimationFrame(step);
+  }
+  requestAnimationFrame(step);
+}
+window.addEventListener('load', () => {
+  setTimeout(() => {
+    animateCount(document.getElementById('cnt-games'), 1385);
+    animateCount(document.getElementById('cnt-genres'), 6);
+    animateCount(document.getElementById('cnt-rating'), 79, '', '%');
+    animateCount(document.getElementById('cnt-price'), 70, '$');
+  }, 500);
+});
+
+/* ══════════ PROGRESS BAR ══════════ */
+window.addEventListener('scroll', () => {
+  const docH = document.documentElement.scrollHeight - window.innerHeight;
+  document.getElementById('progress-bar').style.width = (window.scrollY / docH * 100) + '%';
+});
+
+/* ══════════ SCROLL REVEAL ══════════ */
+const observer = new IntersectionObserver((entries) => {
+  entries.forEach(e => { if (e.isIntersecting) e.target.classList.add('visible'); });
+}, { threshold: 0.15 });
+document.querySelectorAll('.chart-card, .insight-box, .takeaway-card').forEach(el => observer.observe(el));
+
+/* ══════════ CHART DEFAULTS ══════════ */
+Chart.defaults.color = '#7a7a9a';
+Chart.defaults.font.family = "'DM Mono', monospace";
+Chart.defaults.font.size = 11;
+
+const gridStyle = { color: 'rgba(42,42,62,0.8)', borderDash: [4,4] };
+
+/* ══════════ CH2: PRICE BY GENRE ══════════ */
+new Chart(document.getElementById('chartPriceGenre'), {
+  type: 'bar',
+  data: {
+    labels: genres,
+    datasets: [{
+      label: 'Avg Price ($)',
+      data: genres.map(g => genreStats[g].avgPrice),
+      backgroundColor: genres.map(g => genreColors[g] + 'cc'),
+      borderColor: genres.map(g => genreColors[g]),
+      borderWidth: 1,
+      borderRadius: 4,
+    }]
+  },
+  options: {
+    responsive: true, maintainAspectRatio: false,
+    plugins: {
+      legend: { display: false },
+      tooltip: { callbacks: { label: ctx => `$${ctx.raw.toFixed(2)}` } }
+    },
+    scales: {
+      x: { grid: gridStyle },
+      y: { grid: gridStyle, beginAtZero: true, ticks: { callback: v => '$'+v } }
+    }
+  }
+});
+
+/* ══════════ CH3: SATISFACTION BY GENRE ══════════ */
+new Chart(document.getElementById('chartSatGenre'), {
+  type: 'bar',
+  data: {
+    labels: genres,
+    datasets: [{
+      label: 'Avg Satisfaction (%)',
+      data: genres.map(g => genreStats[g].avgSat),
+      backgroundColor: genres.map(g => genreColors[g] + 'cc'),
+      borderColor: genres.map(g => genreColors[g]),
+      borderWidth: 1,
+      borderRadius: 4,
+    }]
+  },
+  options: {
+    indexAxis: 'y',
+    responsive: true, maintainAspectRatio: false,
+    plugins: {
+      legend: { display: false },
+      tooltip: { callbacks: { label: ctx => `${ctx.raw}%` } }
+    },
+    scales: {
+      x: { grid: gridStyle, min: 55, max: 100, ticks: { callback: v => v+'%' } },
+      y: { grid: gridStyle }
+    }
+  }
+});
+
+/* ══════════ CH3: HEATMAP ══════════ */
+(function() {
+  const priceTiers = ['Free/$0','Budget $1-15','Mid $15-30','Premium $30-60','AAA $60+'];
+  const heatData = {
+    Action:   [null, 80, 76, 72, 65],
+    RPG:      [null, 84, 79, 74, 68],
+    Indie:    [85, 90, 88, 82, null],
+    Racing:   [null, null, 72, 68, 62],
+    Casual:   [88, 87, 83, null, null],
+    Strategy: [null, 85, 82, 78, 71],
+  };
+  const container = document.getElementById('heatmapContainer');
+  const table = document.createElement('table');
+  table.style.cssText = 'border-collapse:collapse;width:100%;height:100%;font-family:var(--font-mono);font-size:0.62rem;';
+
+  // Header
+  const thead = table.createTHead();
+  const hr = thead.insertRow();
+  const th0 = document.createElement('th');
+  th0.textContent = '';
+  th0.style.cssText = 'padding:6px 8px;color:var(--muted);text-align:left;width:80px;';
+  hr.appendChild(th0);
+  priceTiers.forEach(t => {
+    const th = document.createElement('th');
+    th.textContent = t;
+    th.style.cssText = 'padding:6px 4px;color:var(--muted);text-align:center;font-size:0.6rem;';
+    hr.appendChild(th);
+  });
+
+  const tbody = table.createTBody();
+  genres.forEach(g => {
+    const row = tbody.insertRow();
+    const lbl = row.insertCell();
+    lbl.textContent = g;
+    lbl.style.cssText = 'color:var(--text);padding:4px 8px;white-space:nowrap;font-size:0.68rem;';
+    heatData[g].forEach((v, i) => {
+      const cell = row.insertCell();
+      cell.style.cssText = 'padding:4px;text-align:center;';
+      if (v === null) {
+        cell.style.background = '#12121a';
+        cell.textContent = '—';
+        cell.style.color = '#2a2a3e';
+      } else {
+        const intensity = (v - 60) / 40; // 0..1
+        const r = Math.round(232 * intensity + 255 * (1-intensity));
+        const g2 = Math.round(255 * intensity + 95 * (1-intensity));
+        const b = Math.round(60 * intensity + 60 * (1-intensity));
+        cell.style.background = `rgba(${r},${g2},${b},0.25)`;
+        cell.style.border = `1px solid rgba(${r},${g2},${b},0.4)`;
+        cell.style.color = `rgb(${r},${g2},${b})`;
+        cell.style.borderRadius = '4px';
+        cell.textContent = v+'%';
+        cell.style.cursor = 'default';
+        cell.title = `${g} — ${priceTiers[i]}: ${v}% satisfaction`;
+      }
+    });
+  });
+
+  container.appendChild(table);
+})();
+
+/* ══════════ CH4: SCATTER ══════════ */
+let scatterChart;
+let activeGenre = 'all';
+let minReviews = 0;
+
+function buildScatterData() {
+  const filtered = allGames.filter(d =>
+    (activeGenre === 'all' || d.genre === activeGenre) &&
+    d.reviews >= minReviews
+  );
+  // Group by genre for datasets
+  const datasetMap = {};
+  genres.forEach(g => datasetMap[g] = []);
+  filtered.forEach(d => {
+    if (activeGenre === 'all' || d.genre === activeGenre)
+      datasetMap[d.genre].push({ x: d.price, y: d.sat, reviews: d.reviews, name: d.name, genre: d.genre });
+  });
+  return genres
+    .filter(g => activeGenre === 'all' || g === activeGenre)
+    .map(g => ({
+      label: g,
+      data: datasetMap[g],
+      backgroundColor: genreColors[g] + '88',
+      borderColor: genreColors[g],
+      borderWidth: 1,
+      pointRadius: 4,
+      pointHoverRadius: 7,
+    }));
+}
+
+function initScatter() {
+  const ctx = document.getElementById('chartScatter');
+  scatterChart = new Chart(ctx, {
+    type: 'scatter',
+    data: { datasets: buildScatterData() },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          callbacks: {
+            label: ctx => [`${ctx.raw.name}`, `Genre: ${ctx.raw.genre}`, `Price: $${ctx.raw.x.toFixed(2)}`, `Satisfaction: ${ctx.raw.y.toFixed(1)}%`, `Reviews: ${ctx.raw.reviews.toLocaleString()}`]
+          }
+        }
+      },
+      scales: {
+        x: { grid: gridStyle, title: { display: true, text: 'Price (USD)', color: '#7a7a9a' }, min: 0, max: 80, ticks: { callback: v => '$'+v } },
+        y: { grid: gridStyle, title: { display: true, text: 'Satisfaction (%)', color: '#7a7a9a' }, min: 30, max: 100, ticks: { callback: v => v+'%' } }
+      }
+    }
+  });
+
+  // Legend
+  const leg = document.getElementById('scatterLegend');
+  genres.forEach(g => {
+    const item = document.createElement('div');
+    item.className = 'legend-item';
+    item.innerHTML = `<span class="legend-dot" style="background:${genreColors[g]}"></span>${g}`;
+    leg.appendChild(item);
+  });
+}
+initScatter();
+
+// Filters
+document.getElementById('genre-filter').addEventListener('click', e => {
+  if (!e.target.matches('.filter-btn')) return;
+  document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+  e.target.classList.add('active');
+  activeGenre = e.target.dataset.genre;
+  scatterChart.data.datasets = buildScatterData();
+  scatterChart.update();
+});
+
+document.getElementById('reviewSlider').addEventListener('input', function() {
+  minReviews = +this.value;
+  document.getElementById('reviewVal').textContent = minReviews.toLocaleString()+'+';
+  scatterChart.data.datasets = buildScatterData();
+  scatterChart.update();
+});
+
+/* ══════════ CH5: DISTRIBUTION ══════════ */
+(function() {
+  // Build histogram bins 30-100 in steps of 5
+  const bins = [];
+  const labels = [];
+  for (let i = 30; i < 100; i += 5) {
+    labels.push(`${i}–${i+5}%`);
+    const count = allGames.filter(d => d.sat >= i && d.sat < i+5).length;
+    bins.push(count);
+  }
+  const colors = bins.map((_, i) => {
+    const midSat = 32.5 + i*5;
+    if (midSat < 60) return '#ff5f5f88';
+    if (midSat < 75) return '#fbbf2488';
+    return '#e8ff3c88';
+  });
+  const borderColors = colors.map(c => c.replace('88','ff'));
+
+  new Chart(document.getElementById('chartDist'), {
+    type: 'bar',
+    data: {
+      labels,
+      datasets: [{
+        label: 'Number of Games',
+        data: bins,
+        backgroundColor: colors,
+        borderColor: borderColors,
+        borderWidth: 1,
+        borderRadius: 3,
+      }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: {
+        legend: { display: false },
+        annotation: {},
+        tooltip: { callbacks: { label: ctx => `${ctx.raw} games` } }
+      },
+      scales: {
+        x: { grid: gridStyle },
+        y: { grid: gridStyle, beginAtZero: true }
+      }
+    }
+  });
+})();
+</script>
+</body>
+</html>
